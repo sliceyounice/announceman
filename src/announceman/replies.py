@@ -7,6 +7,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import (Message, LinkPreviewOptions, InlineKeyboardMarkup,
                            InlineKeyboardButton, ReplyKeyboardRemove, InputFile)
 from aiogram.types.input_file import DEFAULT_CHUNK_SIZE
+from aiogram.utils.markdown import markdown_decoration
 from pydantic.dataclasses import dataclass
 
 from announceman import config
@@ -174,4 +175,4 @@ async def post_announcement(message: Message, bot: Bot, announcement: Announceme
         photo=announcement.get_route_preview(),
         caption=announcement.get_announcement_text(),
     )
-    await message.reply(f"Posted to {config.TARGET_CHANNEL_NAME}")
+    await message.reply(f"Posted to {markdown_decoration.quote(config.TARGET_CHANNEL_NAME)}")
