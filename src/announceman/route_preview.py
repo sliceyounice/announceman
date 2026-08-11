@@ -56,7 +56,7 @@ def get_preview_info(route_url) -> Tuple[str, str, str, str]:
     elif 'komoot.com' in domain:
         name = get_meta_content(property='og:title').split(' | ')[0]
         length = get_meta_content(property='og:description').split('Distance: ')[1].split(' | ')[0].replace('\xa0', '')
-        elevation = soup.find(**{"data-test-id": "t_elevation_up_value"}).get_text().replace('\xa0', '')
+        elevation = soup.find(**{"data-test-id": "t_elevation_up"}).get_text().replace('\xa0', '')
     elif 'ridewithgps.com' in domain:
         name = get_meta_content(property='og:title')
         length, elevation = get_meta_content(property='og:description').split('. Bike ride in ')[0].split(', +')
