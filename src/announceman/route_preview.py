@@ -57,6 +57,16 @@ def get_preview_info(route_url) -> Tuple[str, str, str, str]:
         name = get_meta_content(property='og:title').split(' | ')[0]
         length = get_meta_content(property='og:description').split('Distance: ')[1].split(' | ')[0].replace('\xa0', '')
         elevation = soup.find(**{"data-test-id": "t_elevation_up"}).get_text().replace('\xa0', '')
+
+        # Komoot lists a user highlight photo before the route map when one exists, so the
+        # first og:image is inconsistent. Prefer the rendered route map (tourpic-vector).
+        map_image = next(
+            (m['content'] for m in soup.find_all("meta", property='og:image')
+             if 'tourpic-vector' in m['content']),
+            None,
+        )
+        if map_image:
+            img_link = map_image
     elif 'ridewithgps.com' in domain:
         name = get_meta_content(property='og:title')
         length, elevation = get_meta_content(property='og:description').split('. Bike ride in ')[0].split(', +')
