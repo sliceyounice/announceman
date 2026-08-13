@@ -89,7 +89,6 @@ async def process_start_point(message: Message, state: FSMContext) -> None:
     await process_start_point_data(message.text, message, state)
 
 
-@form_router.message()
 @form_router.message(CommandStart())
 async def command_start(message: Message, state: FSMContext) -> None:
     await state.clear()
