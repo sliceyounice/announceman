@@ -1,5 +1,6 @@
 .venv
 .idea
+.env
 announceman_data
 TODO.md
 __pycache__
