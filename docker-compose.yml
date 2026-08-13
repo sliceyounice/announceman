@@ -5,6 +5,6 @@ services:
     build: .
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      TARGET_CHANNEL_NAME: ${TARGET_CHANNEL_NAME}
+      TARGET_CHANNEL_NAMES: ${TARGET_CHANNEL_NAMES}
     volumes:
       - ./announceman_data:/src/announceman_data

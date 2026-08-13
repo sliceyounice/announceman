@@ -169,10 +169,10 @@ async def send_links(routes: List[str], start_points: List[str], message: Messag
     )
 
 
-async def post_announcement(message: Message, bot: Bot, announcement: Announcement):
+async def post_announcement(message: Message, bot: Bot, announcement: Announcement, chat_id: str):
     await bot.send_photo(
-        chat_id=config.TARGET_CHANNEL_NAME,
+        chat_id=chat_id,
         photo=announcement.get_route_preview(),
         caption=announcement.get_announcement_text(),
     )
-    await message.reply(f"Posted to {markdown_decoration.quote(config.TARGET_CHANNEL_NAME)}")
+    await message.reply(f"Posted to {markdown_decoration.quote(chat_id)}")

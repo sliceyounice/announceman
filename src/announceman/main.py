@@ -176,7 +176,7 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
         route = routes[state_data['route_id']]
         LOG.info(f'Announcement made: {state_data}')
         state_data['route_preview'] = route.preview_id or route.preview_image
-        posting_enabled = config.TARGET_CHANNEL_NAME is not None
+        posting_enabled = config.TARGET_CHANNEL_NAMES is not None
         state_data['user_link'] = callback_query.from_user.mention_markdown()
         route.preview_id = await replies.send_announcement(replies.Announcement(**state_data), callback_query.message, posting_enabled)
         state_data['route_preview'] = route.preview_id
@@ -184,7 +184,7 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
         await state.update_data(**state_data)
         await state.set_state(Form.announcement)
     elif form_state_name == Form.announcement and callback_data == config.POST_TO_CHANNEL_DATA:
-        if config.TARGET_CHANNEL_NAME is None:
+        if config.TARGET_CHANNEL_NAMES is None:
             return
         prev_post, prev_post_time = latest_posts.get(callback_query.from_user.id, (None, None))
         if prev_post_time is None or datetime.now() - prev_post_time > timedelta(seconds=int(config.MIN_TIME_BETWEEN_POSTS)):
@@ -193,13 +193,18 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
                 await callback_query.message.reply(f"This announcement has already been posted.")
                 return
 
-            try:
-                await replies.post_announcement(callback_query.message, bot, announcement)
-                LOG.info(f'Announcement {announcement} posted to {config.TARGET_CHANNEL_NAME}')
+            posted_at_least_once = False
+            for channel_name in config.TARGET_CHANNEL_NAMES:
+                try:
+                    await replies.post_announcement(callback_query.message, bot, announcement, channel_name)
+                    LOG.info(f'Announcement {announcement} posted to {channel_name}')
+                    posted_at_least_once = True
+                except Exception:
+                    LOG.exception("Failed to post")
+                    await callback_query.message.reply(f"Unable to post. Contact my master")
+
+            if posted_at_least_once:
                 latest_posts[callback_query.from_user.id] = (announcement, datetime.now())
-            except Exception:
-                LOG.exception("Failed to post")
-                await callback_query.message.reply(f"Unable to post. Contact my master")
         else:
             await callback_query.message.reply(f"You can only post once every {config.MIN_TIME_BETWEEN_POSTS} seconds.")
 
