@@ -1,10 +1,20 @@
+x-announceman: &announceman
+  build: .
+  volumes:
+    - ./announceman_data:/src/announceman_data
+
 services:
   announceman:
-    image: announceman
+    <<: *announceman
+    image: announceman:live
     restart: unless-stopped
-    build: .
-    environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      TARGET_CHANNEL_NAMES: ${TARGET_CHANNEL_NAMES}
-    volumes:
-      - ./announceman_data:/src/announceman_data
+    env_file: .env
+
+  test:
+    <<: *announceman
+    image: announceman:test
+    restart: "no"
+    profiles: [test]
+    env_file:
+      - path: .env.test
+        required: false
