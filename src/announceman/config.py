@@ -15,6 +15,8 @@ START_POINTS_PATH = "announceman_data/starting_points.json"
 DEFAULT_HOUR = 10
 DEFAULT_MINUTE = 0
 ROUTE_LIST_PAGE_LEN = 10
+# Telegram caps photo captions at 1024 chars; escaping can nearly double a note's length.
+MAX_NOTES_LENGTH = 500
 
 # callback data strings
 GO_BACK_DATA = "go-back-data"
@@ -26,9 +28,12 @@ PICKER_DOWN_MINUTE_DATA = "picker-down-minute-data"
 PICKER_SAVE_DATA = "picker-save-data"
 NO_ACTION_DATA = "no-action-data"
 POST_TO_CHANNEL_DATA = "post-to-channel-data"
+SKIP_NOTES_DATA = "skip-notes-data"
+NOTES_SAVED_DATA = "notes-saved-data"
 
 # reusable keyboard buttons
 KEYBOARD_RESTART = InlineKeyboardButton(text="Restart", callback_data=RESTART_DATA)
+KEYBOARD_SKIP_NOTES = InlineKeyboardButton(text="Skip", callback_data=SKIP_NOTES_DATA)
 KEYBOARD_SERVICE_LINE = [
     InlineKeyboardButton(text="Go back", callback_data=GO_BACK_DATA),
     KEYBOARD_RESTART,

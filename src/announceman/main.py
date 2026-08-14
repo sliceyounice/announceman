@@ -16,6 +16,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     Message,
     CallbackQuery,
+    User,
 )
 from pydantic.dataclasses import dataclass
 
@@ -56,6 +57,7 @@ class Form(StatesGroup):
     track = State()
     start_point = State()
     pace = State()
+    notes = State()
     announcement = State()
 
 
@@ -99,6 +101,18 @@ async def command_start(message: Message, state: FSMContext) -> None:
     await replies.ask_for_date(message)
 
 
+# Registered after command_start so that /start still restarts instead of becoming a note.
+@form_router.message(Form.notes, F.text, ~F.text.startswith("/"))
+async def process_notes(message: Message, state: FSMContext) -> None:
+    notes = message.text.strip()
+    if len(notes) > config.MAX_NOTES_LENGTH:
+        return await replies.notes_too_long(message, len(notes))
+
+    stack = await get_stack_updated_by_command(config.NOTES_SAVED_DATA, state)
+    await state.update_data(notes=notes, stack=stack)
+    await finish_announcement(message, state, message.from_user)
+
+
 @form_router.callback_query()
 async def callback_query_handler(callback_query: CallbackQuery, state: FSMContext) -> None:
     callback_data = callback_query.data
@@ -124,6 +138,11 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
             return await command_start(callback_query.message, state)
     else:
         form_state_name = str(form_state)
+
+    # Stale buttons from earlier messages can land here; drop them before the stack is touched,
+    # since `stack` aliases the stored FSM data and an append would stick even on an early return.
+    if form_state_name == Form.notes and callback_data != config.SKIP_NOTES_DATA:
+        return
 
     if form_state_name not in {Form.track, Form.time, Form.start_point}:
         if not (form_state_name == Form.announcement and callback_data == config.POST_TO_CHANNEL_DATA):
@@ -174,17 +193,13 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
     elif form_state_name == Form.start_point:
         await process_start_point_data(callback_data, callback_query.message, state)
     elif form_state_name == Form.pace:
-        state_data['pace'] = callback_data
-        route = routes[state_data['route_id']]
-        LOG.info(f'Announcement made: {state_data}')
-        state_data['route_preview'] = route.preview_id or route.preview_image
-        posting_enabled = config.TARGET_CHANNEL_NAMES is not None
-        state_data['user_link'] = callback_query.from_user.mention_markdown()
-        route.preview_id = await replies.send_announcement(replies.Announcement(**state_data), callback_query.message, posting_enabled)
-        state_data['route_preview'] = route.preview_id
-        state_data['stack'] = stack
-        await state.update_data(**state_data)
-        await state.set_state(Form.announcement)
+        await state.update_data(pace=callback_data, stack=stack)
+        await state.set_state(Form.notes)
+        await replies.ask_for_notes(callback_query.message)
+    elif form_state_name == Form.notes:
+        # Skipping must clear any note typed before a trip back through the pace step.
+        await state.update_data(notes=None, stack=stack)
+        await finish_announcement(callback_query.message, state, callback_query.from_user)
     elif form_state_name == Form.announcement and callback_data == config.POST_TO_CHANNEL_DATA:
         if config.TARGET_CHANNEL_NAMES is None:
             return
@@ -209,6 +224,24 @@ async def callback_query_handler(callback_query: CallbackQuery, state: FSMContex
                 latest_posts[callback_query.from_user.id] = (announcement, datetime.now())
         else:
             await callback_query.message.reply(f"You can only post once every {config.MIN_TIME_BETWEEN_POSTS} seconds.")
+
+
+async def finish_announcement(message: Message, state: FSMContext, from_user: User) -> None:
+    """Render and send the announcement preview. Callers must persist `stack` beforehand.
+
+    `from_user` is passed explicitly because on the callback path `message.from_user` is the bot,
+    not the person who pressed the button.
+    """
+    state_data = await state.get_data()
+    route = routes[state_data['route_id']]
+    LOG.info(f'Announcement made: {state_data}')
+    state_data['route_preview'] = route.preview_id or route.preview_image
+    state_data['user_link'] = from_user.mention_markdown()
+    posting_enabled = config.TARGET_CHANNEL_NAMES is not None
+    route.preview_id = await replies.send_announcement(replies.Announcement(**state_data), message, posting_enabled)
+    state_data['route_preview'] = route.preview_id
+    await state.update_data(**state_data)
+    await state.set_state(Form.announcement)
 
 
 async def get_stack_updated_by_command(command: str, state: FSMContext) -> List[Tuple[str, str]]:

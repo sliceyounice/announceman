@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Optional, AsyncGenerator, List, Union, Tuple
 
@@ -17,6 +18,15 @@ from announceman.route_preview import Route
 
 LOG = logging.getLogger(__name__)
 
+# The bot sends with legacy Markdown, which only honours a backslash before these four
+# characters. Escaping anything else -- as aiogram's MarkdownV2-flavoured
+# markdown_decoration.quote() does -- leaves a visible backslash in the message.
+MARKDOWN_SPECIAL = re.compile(r"([_*`\[])")
+
+
+def escape_markdown(text: str) -> str:
+    return MARKDOWN_SPECIAL.sub(r"\\\1", text)
+
 
 @dataclass
 class Announcement:
@@ -27,6 +37,7 @@ class Announcement:
     start_point: str
     pace: str
     user_link: Union[str, None]
+    notes: Optional[str] = None
 
     def get_route_preview(self) -> Union["InMemoryInputFile", str]:
         if isinstance(self.route_preview, bytes):
@@ -34,11 +45,15 @@ class Announcement:
         return self.route_preview
 
     def get_announcement_text(self) -> str:
+        # Notes are free user text, so they must be escaped here rather than at capture time --
+        # that keeps every path that sets the field safe.
+        notes_block = f"{escape_markdown(self.notes)}\n\n" if self.notes else ""
         return (
             f"Announcement ({self.date})\n\n"
             f"{self.track}\n"
             f"{self.time} at {self.start_point}\n"
             f"Pace: {self.pace}\n\n"
+            f"{notes_block}"
             f"by {self.user_link}"
         )
 
@@ -133,6 +148,26 @@ async def ask_for_pace(message: Message):
     )
 
 
+async def ask_for_notes(message: Message):
+    # reply() rather than edit_text(): coming back from the announcement the source is a photo.
+    await message.reply(
+        "Add any additional notes, or skip this step.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [config.KEYBOARD_SKIP_NOTES],
+                config.KEYBOARD_SERVICE_LINE,
+            ],
+        ),
+    )
+
+
+async def notes_too_long(message: Message, length: int):
+    await message.reply(
+        f"That note is {length} characters, the limit is {config.MAX_NOTES_LENGTH}. "
+        f"Please send a shorter one."
+    )
+
+
 async def send_announcement(announcement: Announcement, message: Message, posting_enabled: bool = False) -> str:
     reply_obj = await message.reply_photo(
         photo=announcement.get_route_preview(),
@@ -175,4 +210,5 @@ async def post_announcement(message: Message, bot: Bot, announcement: Announceme
         photo=announcement.get_route_preview(),
         caption=announcement.get_announcement_text(),
     )
+    
     await message.reply(f"Posted to {markdown_decoration.quote(chat_id)}")
