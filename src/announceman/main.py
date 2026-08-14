@@ -9,7 +9,7 @@ from typing import Tuple, List, Union
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram.enums import ChatType, ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -27,6 +27,9 @@ LOG = logging.getLogger(__name__)
 routes = []
 start_points = []
 form_router = Router()
+# The wizard only ever runs in a 1:1 chat with the user; ignore groups/channels entirely.
+form_router.message.filter(F.chat.type == ChatType.PRIVATE)
+form_router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE)
 latest_posts = {}
 bot = Bot(token=config.TOKEN, default=DefaultBotProperties(
     parse_mode=ParseMode.MARKDOWN,
