@@ -201,5 +201,8 @@ async def post_announcement(message: Message, bot: Bot, announcement: Announceme
         photo=announcement.get_route_preview(),
         caption=announcement.get_announcement_text(),
     )
-    
-    await message.reply(f"Posted to {html_decoration.quote(chat_id)}")
+    if not chat_id.startswith("@"):
+        posted_to = "private channel"
+    else:
+        posted_to = chat_id
+    await message.reply(f"Posted to {html_decoration.quote(posted_to)}")
