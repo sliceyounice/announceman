@@ -6,8 +6,18 @@ from urllib.request import urlopen
 import requests
 from PIL import Image, ImageDraw
 
+from aiogram.utils.text_decorations import html_decoration
 from bs4 import BeautifulSoup
 from pydantic.dataclasses import dataclass
+
+
+def html_link(text: str, url: str) -> str:
+    """Anchor for the bot's HTML parse mode, escaping both halves.
+
+    aiogram's html_decoration.link() interpolates raw, so a name containing `&` or a URL with
+    query parameters would produce markup Telegram rejects.
+    """
+    return f'<a href="{html_decoration.quote(url)}">{html_decoration.quote(text)}</a>'
 
 
 @dataclass
@@ -98,6 +108,6 @@ def load_route(route_url, route_name=None, route_pic=None) -> Route:
         length=length,
         elevation=elevation,
         link=route_url,
-        preview_message=f"[{name}]({route_url})",
+        preview_message=html_link(name, route_url),
         preview_image=preview_image,
     )

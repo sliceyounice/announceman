@@ -21,7 +21,7 @@ from aiogram.types import (
 from pydantic.dataclasses import dataclass
 
 from announceman import replies, config
-from announceman.route_preview import load_route
+from announceman.route_preview import load_route, html_link
 
 
 LOG = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ form_router.message.filter(F.chat.type == ChatType.PRIVATE)
 form_router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE)
 latest_posts = {}
 bot = Bot(token=config.TOKEN, default=DefaultBotProperties(
-    parse_mode=ParseMode.MARKDOWN,
+    parse_mode=ParseMode.HTML,
     disable_notification=True,
     link_preview_is_disabled=True,
 ))
@@ -48,7 +48,7 @@ class StartPoint:
 
     @property
     def formatted(self) -> str:
-        return f"[{self.name}]({self.link})"
+        return html_link(self.name, self.link)
 
 
 class Form(StatesGroup):
@@ -236,7 +236,7 @@ async def finish_announcement(message: Message, state: FSMContext, from_user: Us
     route = routes[state_data['route_id']]
     LOG.info(f'Announcement made: {state_data}')
     state_data['route_preview'] = route.preview_id or route.preview_image
-    state_data['user_link'] = from_user.mention_markdown()
+    state_data['user_link'] = from_user.mention_html()
     posting_enabled = config.TARGET_CHANNEL_NAMES is not None
     route.preview_id = await replies.send_announcement(replies.Announcement(**state_data), message, posting_enabled)
     state_data['route_preview'] = route.preview_id

@@ -1,5 +1,4 @@
 import logging
-import re
 from datetime import datetime, timedelta
 from typing import Optional, AsyncGenerator, List, Union, Tuple
 
@@ -8,7 +7,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import (Message, LinkPreviewOptions, InlineKeyboardMarkup,
                            InlineKeyboardButton, ReplyKeyboardRemove, InputFile)
 from aiogram.types.input_file import DEFAULT_CHUNK_SIZE
-from aiogram.utils.markdown import markdown_decoration
+from aiogram.utils.text_decorations import html_decoration
 from pydantic.dataclasses import dataclass
 
 from announceman import config
@@ -17,15 +16,6 @@ from announceman.route_preview import Route
 
 
 LOG = logging.getLogger(__name__)
-
-# The bot sends with legacy Markdown, which only honours a backslash before these four
-# characters. Escaping anything else -- as aiogram's MarkdownV2-flavoured
-# markdown_decoration.quote() does -- leaves a visible backslash in the message.
-MARKDOWN_SPECIAL = re.compile(r"([_*`\[])")
-
-
-def escape_markdown(text: str) -> str:
-    return MARKDOWN_SPECIAL.sub(r"\\\1", text)
 
 
 @dataclass
@@ -47,7 +37,7 @@ class Announcement:
     def get_announcement_text(self) -> str:
         # Notes are free user text, so they must be escaped here rather than at capture time --
         # that keeps every path that sets the field safe.
-        notes_block = f"{escape_markdown(self.notes)}\n\n" if self.notes else ""
+        notes_block = f"{html_decoration.quote(self.notes)}\n\n" if self.notes else ""
         return (
             f"Announcement ({self.date})\n\n"
             f"{self.track}\n"
@@ -78,7 +68,7 @@ async def canceled(message: Message):
 async def ask_for_date(message: Message):
     await message.reply(
         "Pick a date",
-        parse_mode=ParseMode.MARKDOWN,
+        parse_mode=ParseMode.HTML,
         link_preview_options=LinkPreviewOptions(is_disabled=True),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [
@@ -93,7 +83,8 @@ async def ask_for_date(message: Message):
 
 async def show_route_list(routes: List[Route], message: Message, page_offset: int):
     route_previews = [
-        f'{route.preview_message}\n{route.length} | {route.elevation} --> /route\_{i}\n'
+        f'{route.preview_message}\n{html_decoration.quote(route.length)} | '
+        f'{html_decoration.quote(route.elevation)} --> /route_{i}\n'
         for i, route in enumerate(routes)
     ]
     offset = int(page_offset) * config.ROUTE_LIST_PAGE_LEN
@@ -187,7 +178,7 @@ async def ask_for_starting_point(starting_points: List["StartPoint"], message: M
     for sp in starting_points:
         if sp.group not in grouped_points:
             grouped_points[sp.group] = []
-        grouped_points[sp.group].append(f"{sp.formatted} --> /sp\_{sp._id}")
+        grouped_points[sp.group].append(f"{sp.formatted} --> /sp_{sp._id}")
 
     await message.reply(
         f"Choose a starting point\n\n{"\n".join(
@@ -211,4 +202,4 @@ async def post_announcement(message: Message, bot: Bot, announcement: Announceme
         caption=announcement.get_announcement_text(),
     )
     
-    await message.reply(f"Posted to {markdown_decoration.quote(chat_id)}")
+    await message.reply(f"Posted to {html_decoration.quote(chat_id)}")
